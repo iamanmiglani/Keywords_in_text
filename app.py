@@ -1,3 +1,9 @@
+# # Keyword and CTA database
+# keywords = {
+#     "buy": ["go purchase", "go order now", "go acquire"],
+#     "subscribe": ["check now", "get it for yourself", "enroll"],
+#     "call to action": ["buy now", "click here", "get yours"]
+# }
 
 
 from llama_cpp import Llama
