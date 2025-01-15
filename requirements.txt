@@ -1,5 +1,5 @@
-transformers
-sentence-transformers
+llama-cpp-python==0.1.61
 streamlit
-torch
-scipy
+torch==2.0.1
+scipy==1.11.3
+jsonlib-python3==1.6.1
