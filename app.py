@@ -6,99 +6,50 @@
 # }
 
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import timeit
-import json
-import os
+import streamlit as st
+from transformers import pipeline
+from docx import Document
+import pdfplumber
 
-# Load Falcon model and tokenizer
-def load_falcon_model():
-    model_name = "tiiuae/falcon-7b-instruct"  # Open-source Falcon model
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype="auto")
-    return tokenizer, model
+# Load LLM model
+model = pipeline("text-classification", model="openai-gpt", tokenizer="openai-gpt")
 
-tokenizer, model = load_falcon_model()
+# CTA Keywords
+cta_keywords = ["Buy Now", "Sign Up Today", "Subscribe", "Call Us"]
 
-# Function to generate a response using Falcon
-def generate_falcon_response(prompt, tokenizer, model):
-    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
-    start = timeit.default_timer()
-    outputs = model.generate(
-        inputs.input_ids,
-        max_length=512,
-        num_return_sequences=1,
-        temperature=0.7,
-        top_p=0.9,
-    )
-    duration = timeit.default_timer() - start
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return response, duration
+# Function to process file
+def extract_text(file):
+    if file.name.endswith(".pdf"):
+        with pdfplumber.open(file) as pdf:
+            text = "\n".join(page.extract_text() for page in pdf.pages)
+    elif file.name.endswith(".docx"):
+        doc = Document(file)
+        text = "\n".join([p.text for p in doc.paragraphs])
+    else:
+        text = file.read().decode("utf-8")
+    return text
 
-# File handling for transcription
-def process_transcription_file(file_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    with open(file_path, "r", encoding="utf-8") as file:
-        return file.read()
+# Search for CTA
+def search_cta(text):
+    results = []
+    for keyword in cta_keywords:
+        if keyword.lower() in text.lower():
+            results.append(keyword)
+    return results
 
-# Search for keywords and call-to-action phrases
-def search_keywords(text, keywords_dict):
-    matches = {}
-    for keyword, synonyms in keywords_dict.items():
-        matches[keyword] = {
-            "count": 0,
-            "matches": []
-        }
-        for synonym in [keyword] + synonyms:
-            count = text.lower().count(synonym.lower())
-            if count > 0:
-                matches[keyword]["count"] += count
-                matches[keyword]["matches"].append(synonym)
-    return matches
+# Streamlit App
+st.title("Call-to-Action Finder")
+st.write("Upload a document to search for Call-to-Action phrases.")
 
-# Main function
-def main(transcription_file, output_file):
-    # Keywords and call-to-action phrases
-    keywords = {
-        "buy": ["purchase", "order", "acquire"],
-        "subscribe": ["sign up", "join", "enroll"],
-        "call to action": ["buy now", "click here", "sign up today"]
-    }
+uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
+if uploaded_file:
+    raw_text = extract_text(uploaded_file)
+    st.subheader("Extracted Text")
+    st.write(raw_text)
 
-    # Load transcription
-    transcription = process_transcription_file(transcription_file)
-
-    # Prepare Falcon prompt
-    prompt = f"""
-    Analyze the following transcription for keywords and call-to-action phrases:
-    {json.dumps(keywords)}
-    Text: {transcription}
-    """
-
-    # Generate Falcon response
-    response, duration = generate_falcon_response(prompt, tokenizer, model)
-
-    # Search for keywords
-    matches = search_keywords(transcription, keywords)
-
-    # Output results
-    print(f"Falcon Response Time: {duration:.2f} seconds\n")
-    print("Keyword Matches:")
-    for keyword, data in matches.items():
-        print(f"- {keyword}: {data['count']} match(es) ({', '.join(data['matches'])})")
-
-    # Save results to file
-    with open(output_file, "w", encoding="utf-8") as file:
-        file.write(f"Falcon Response Time: {duration:.2f} seconds\n\n")
-        file.write("Keyword Matches:\n")
-        for keyword, data in matches.items():
-            file.write(f"- {keyword}: {data['count']} match(es) ({', '.join(data['matches'])})\n")
-        file.write("\nFalcon Output:\n")
-        file.write(response)
-
-# Entry point
-if __name__ == "__main__":
-    transcription_path = "transcription.txt"  # Path to your transcription file
-    output_path = "results.txt"  # Path to save the results
-    main(transcription_path, output_path)
+    st.subheader("Identified Call-to-Actions")
+    found_ctas = search_cta(raw_text)
+    if found_ctas:
+        st.success(f"Found the following CTAs: {', '.join(found_ctas)}")
+    else:
+        st.warning("No CTAs found.")
