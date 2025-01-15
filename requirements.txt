@@ -2,8 +2,7 @@ streamlit
 transformers==4.33.2
 torch==2.0.1  # Ensure compatibility with transformers
 sentence-transformers==2.2.2  # For semantic search (optional, if needed)
-docx
-python-docx==0.8.11
+python-docx
 pdfplumber==0.9.0
 PyPDF2==3.0.1
 nltk==3.8.1  # For synonym handling, optional
